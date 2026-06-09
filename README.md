@@ -185,6 +185,23 @@ raw items and runs them through one tested path:
 - **Review flag** — because a post/headline rarely confirms the decision-maker,
   every live lead is `needsReview: true` (🔎 badge). A human confirms ICP fit
   before any outreach. Each signal keeps a real URL + date (*no hallucinated leads*).
+- **Market inference** — when a source carries no geo (e.g. social posts), the
+  market is inferred from the text so the lead still scores, filters, and
+  displays on place.
+- **Contact enrichment (`lib/contacts.js`)** — every lead ships with concrete,
+  **public** reach-out methods so you can act without a separate enrichment step.
+  Three confidence levels, never guessed:
+  `direct` (email/phone the person published, an open DM, a reply on their own
+  thread) → `profile` (their public profile page) → `lookup` (deterministic
+  LinkedIn / Google search links that land on the right person at the org). The
+  best method is surfaced on the card; the Inbox has a **📇 contactable-only**
+  filter and reachable leads break score ties. Generated outreach drafts include
+  the send-via links.
+
+**Volume.** Sources are tuned for high recall: GDELT runs ~50 intent phrases at
+up to 250 records, Reddit sweeps 13 subreddit/intent searches, Hacker News runs
+21 queries, and RSS ships emerging-market + Google-News feeds (all overridable
+via `RSS_FEEDS`). The ICP-fit gate keeps precision high downstream.
 
 **Configure RSS feeds without code** via the `RSS_FEEDS` env var
 (comma-separated URLs) — point it at your target markets' tender, planning, and

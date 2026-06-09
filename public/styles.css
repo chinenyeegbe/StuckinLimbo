@@ -85,6 +85,28 @@ main { padding: 22px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .tag.stale { color: var(--hot); border-color: #f9c4d1; background: #fde7ec; }
 .tag.sample { color: var(--accent-warm); border-color: #f6dcb0; background: #fdf0dc; }
 
+/* Reach-out chips */
+.reach { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.reach.none { color: var(--text-dim); font-size: 11px; }
+.reach-label { font-size: 11px; color: var(--text-dim); font-weight: 600; }
+.reach-more { font-size: 11px; color: var(--text-dim); }
+.contact-chip {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600;
+  padding: 3px 9px; border-radius: 999px; text-decoration: none; border: 1px solid var(--border-strong);
+  background: #fff; color: var(--text); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: border-color .12s, background .12s;
+}
+.contact-chip:hover { border-color: var(--accent); color: var(--accent); }
+.contact-chip.conf-direct { background: #e8f7ee; border-color: #b6e6c8; color: #15803d; }
+.contact-chip.conf-direct:hover { border-color: var(--won); }
+.contact-chip.conf-profile { background: var(--accent-soft); border-color: #c9ddfd; color: #1d4ed8; }
+.contact-chip.conf-lookup { background: var(--bg); border-color: var(--border-strong); color: var(--text-dim); }
+.reach-grid { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
+.reach-grid .contact-chip { max-width: 100%; }
+.draft-reach { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.filters label.check { gap: 6px; cursor: pointer; }
+.filters label.check input { width: auto; }
+
 /* Digest */
 .digest-hot { background: linear-gradient(135deg, #fff1f4, #f3eeff); border: 1px solid #f3d3dc; border-radius: var(--radius); padding: 16px 18px; margin-bottom: 22px; cursor: pointer; box-shadow: var(--shadow); }
 .digest-hot:hover { box-shadow: var(--shadow-lg); }

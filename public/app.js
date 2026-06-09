@@ -32,6 +32,23 @@ const escapeHtml = (s) => String(s || '').replace(/[&<>"]/g, (c) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function scoreClass(s) { return s >= 75 ? 's-hot' : s >= 50 ? 's-warm' : 's-cool'; }
+
+const CONTACT_ICON = {
+  email: '✉️', phone: '📞', dm: '💬', thread: '↩️',
+  profile: '👤', linkedin: '🔗', search: '🔎',
+};
+const CONF_LABEL = { direct: 'direct', profile: 'profile', lookup: 'lookup' };
+
+// A clickable reach-out chip. Stops propagation so it doesn't open the drawer.
+function contactChip(c, opts = {}) {
+  const a = el('a', {
+    class: `contact-chip conf-${c.confidence || 'lookup'}${opts.solo ? ' solo' : ''}`,
+    href: c.url, target: '_blank', rel: 'noopener',
+    title: `${c.label} · ${CONF_LABEL[c.confidence] || ''}`,
+  }, `${CONTACT_ICON[c.method] || '🔗'} ${opts.full ? c.label : (c.value || c.method)}`);
+  a.addEventListener('click', (e) => e.stopPropagation());
+  return a;
+}
 function fmtDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -52,6 +69,14 @@ function leadCard(l) {
     l.needsReview ? el('span', { class: 'tag sample' }, '🔎 needs review') : null,
     l.source && l.source !== 'manual' && !l.sample ? el('span', { class: 'tag' }, `via ${l.source}`) : null,
   ];
+  const contacts = l.contacts || [];
+  const reachRow = contacts.length
+    ? el('div', { class: 'reach' },
+      el('span', { class: 'reach-label' }, '📇 Reach:'),
+      ...contacts.slice(0, 3).map((c) => contactChip(c)),
+      contacts.length > 3 ? el('span', { class: 'reach-more' }, `+${contacts.length - 3}`) : null)
+    : el('div', { class: 'reach none' }, '📇 No public contact yet — opens lookup links inside');
+
   return el('div', { class: 'card', onclick: () => openDrawer(l.id) },
     el('div', { class: 'row1' },
       el('span', { class: `score ${scoreClass(l.score)}` }, String(l.score)),
@@ -62,6 +87,7 @@ function leadCard(l) {
       el('span', { class: `seg ${l.segment}` }, SEG_LABEL[l.segment] || l.segment),
     ),
     el('div', { class: 'why' }, l.whyNow),
+    reachRow,
     el('div', { class: 'meta' }, tags),
   );
 }
@@ -123,7 +149,7 @@ async function renderDigest(app) {
 // ---------------------------------------------------------------------------
 // View: Inbox (search + filters)
 // ---------------------------------------------------------------------------
-const inboxState = { q: '', segment: '', stage: '', market: '', minScore: 0, sort: 'score' };
+const inboxState = { q: '', segment: '', stage: '', market: '', minScore: 0, sort: 'score', contactableOnly: false };
 
 async function renderInbox(app) {
   app.append(el('div', { class: 'view-head' },
@@ -138,6 +164,8 @@ async function renderInbox(app) {
   const sortSel = filterSelect(['score', 'freshness'], inboxState.sort,
     (v) => v === 'score' ? 'Sort: Score' : 'Sort: Freshness');
   const minScore = el('input', { type: 'number', min: 0, max: 100, value: inboxState.minScore, style: 'width:70px' });
+  const contactable = el('input', { type: 'checkbox' });
+  contactable.checked = inboxState.contactableOnly;
 
   const results = el('div', { class: 'grid' });
   const reload = async () => {
@@ -146,24 +174,27 @@ async function renderInbox(app) {
     inboxState.stage = stageSel.value;
     inboxState.sort = sortSel.value;
     inboxState.minScore = minScore.value || 0;
+    inboxState.contactableOnly = contactable.checked;
     const qs = new URLSearchParams({
       q: inboxState.q, segment: inboxState.segment, stage: inboxState.stage,
       minScore: inboxState.minScore, sort: inboxState.sort,
     });
+    if (inboxState.contactableOnly) qs.set('contactableOnly', '1');
     const data = await api('/api/leads?' + qs);
     results.innerHTML = '';
     if (!data.count) { results.append(el('div', { class: 'empty' }, 'No leads match.')); return; }
     data.leads.forEach((l) => results.append(leadCard(l)));
   };
 
-  [search, segSel, stageSel, sortSel, minScore].forEach((c) => {
+  [search, segSel, stageSel, sortSel, minScore, contactable].forEach((c) => {
     c.addEventListener('input', reload);
     c.addEventListener('change', reload);
   });
 
   app.append(el('div', { class: 'filters' },
     search, segSel, stageSel, sortSel,
-    el('label', {}, 'min score', minScore)));
+    el('label', {}, 'min score', minScore),
+    el('label', { class: 'check' }, contactable, '📇 contactable only')));
   app.append(results);
   reload();
 }
@@ -349,9 +380,15 @@ async function openDrawer(id) {
       navigator.clipboard?.writeText(`Subject: ${d.subject}\n\n${d.body}`);
       copyBtn.textContent = 'Copied ✓';
     });
+    const reach = (d.contacts && d.contacts.length)
+      ? el('div', { class: 'draft-reach' },
+        el('span', { class: 'reach-label' }, '📇 Send via:'),
+        ...d.contacts.slice(0, 4).map((c) => contactChip(c, { full: true })))
+      : null;
     draftWrap.append(el('div', { class: 'draft-box' },
       el('div', { class: 'subj' }, `Subject: ${d.subject}`),
       pre,
+      reach,
       el('div', { class: 'draft-note' }, '⚠ Draft only — a human approves and sends. Never auto-sent.'),
       copyBtn,
     ));
@@ -382,6 +419,15 @@ async function openDrawer(id) {
       comp('Relevance', bd.relevance, 'relevance'),
       comp('Freshness', bd.freshness, 'freshness'),
       comp('Intent / decision-stage', bd.intent, 'intent'),
+    ),
+    el('div', { class: 'bd' },
+      el('h4', {}, `How to reach ${escapeHtml(l.name).split(' ')[0] || 'them'} (${(l.contacts || []).length})`),
+      (l.contacts && l.contacts.length)
+        ? el('div', { class: 'reach-grid' }, ...l.contacts.map((c) => contactChip(c, { full: true })))
+        : el('div', { class: 'hint' }, 'No public contact captured. Generate a draft for lookup links.'),
+      (l.contacts || []).some((c) => c.confidence === 'lookup')
+        ? el('div', { class: 'draft-note' }, 'ℹ Lookup links find the right person — confirm before sending.')
+        : null,
     ),
     el('div', { class: 'bd' },
       el('h4', {}, `Captured signals (${l.signals.length}) — newest first`),
