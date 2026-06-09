@@ -1,0 +1,17 @@
+{
+  "name": "cuespaces-signal-radar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private demand-sourcing workspace for Cuespaces. Surfaces people in the pre-conviction window of a high-stakes CRE/infrastructure site decision from public signals, ranks them, and routes them into an operator-ready pipeline.",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node scripts/reseed.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}
