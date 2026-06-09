@@ -155,41 +155,59 @@ Optional: set the Slack webhook as an env var in the Netlify UI
 
 ---
 
-## Real signal source — GDELT (live)
+## Real signal sources (live)
 
-A working, no-auth, public source is wired in: **GDELT DOC 2.0** (`lib/sources/gdelt.js`).
-GDELT indexes worldwide news in near-real-time with strong emerging-market
-coverage — the spec's "company press/news" lane.
+Four public, **no-auth** sources are wired in and run in parallel on each
+ingestion. All respect the "public signals only" guardrail (no login, no
+paywalls, no authenticated scraping):
+
+| Source | Lane | File |
+|--------|------|------|
+| **GDELT DOC 2.0** | worldwide news / company press (strong emerging-market coverage) | `lib/sources/gdelt.js` |
+| **Reddit** (public JSON) | **public social posts** — people openly asking where to put something physical (ICP-fit detection; author captured as candidate contact) | `lib/sources/reddit.js` |
+| **Hacker News** (Algolia API) | tech / infra / expansion stories & posts | `lib/sources/hackernews.js` |
+| **RSS / Atom** (generic) | configurable public feeds — tender/planning portals, CRE listings, press, event sites | `lib/sources/rss.js` |
 
 ```bash
-npm run ingest            # pull last 3 days, merge into the store
+npm run ingest                  # pull last 3 days from all sources, merge
 node scripts/ingest.js 7d 100   # custom window + max records
 # or, at runtime:  POST /api/ingest  { "timespan": "3d", "maxrecords": 75 }
+# or, in the UI:   Daily Digest → 📡 Pull fresh signals
 ```
 
-What it does: queries GDELT for language that signals an active, undecided
-ground decision (`"site selection"`, `"data center"`, `"breaks ground"`,
-`"infrastructure fund"`, …), classifies each article into a signal
-type/tier/project-type/segment, folds articles into organization-level leads,
-and merges them into the store (dedup + signal-merge). Because a headline rarely
-names the decision-maker, every GDELT lead is flagged **`needsReview: true`** and
-shown with a 🔎 badge — a human confirms the contact before any outreach. Each
-signal still carries a real URL + date, satisfying *no hallucinated leads*.
+**Shared pipeline (`lib/sources/classify.js`).** Every source normalizes its
+raw items and runs them through one tested path:
+- **ICP-fit gate** — only items reflecting an *active commercial/infra ground
+  decision* become leads. Generic chatter is dropped; **residential is dropped**
+  (commercial & infrastructure only). A name with no live signal is noise.
+- **Classification** — type/tier (highest→context), project type, and segment
+  (developer / agent / investor).
+- **Review flag** — because a post/headline rarely confirms the decision-maker,
+  every live lead is `needsReview: true` (🔎 badge). A human confirms ICP fit
+  before any outreach. Each signal keeps a real URL + date (*no hallucinated leads*).
 
-> **Egress note:** GDELT must be reachable from the host's network allowlist.
-> If it's blocked, ingestion logs and returns cleanly — the workspace keeps
-> running on whatever is already in the store (no source can break the app).
-> *In the build sandbox the allowlist blocked `api.gdeltproject.org`, so live
-> ingestion no-ops there; it runs live anywhere the host is reachable — e.g. a
-> Netlify Function (see below).*
+**Configure RSS feeds without code** via the `RSS_FEEDS` env var
+(comma-separated URLs) — point it at your target markets' tender, planning, and
+listing feeds. Set it in the Netlify UI.
 
-### Wiring additional sources
+### Scheduled ingestion (Netlify)
 
-1. Add an adapter under `lib/sources/` exposing `async fetchLeads({ timespan, maxrecords })`
-   that returns review-flagged, source-linked `Lead[]` from a **publicly accessible** feed
-   (gov planning/tender portals, public CRE listings, job boards, fund announcements…).
-2. Register it in `LIVE_SOURCES` (`lib/ingest.js`).
-3. The orchestrator dedups and merges automatically.
+`netlify/functions/ingest-cron.js` runs on a cron (`netlify.toml` →
+`[functions."ingest-cron"].schedule = "0 6 * * *"`) so the morning digest is
+populated automatically — no button press needed. Adjust the cron to taste.
+
+> **Egress note:** these sources must be reachable from the host's network
+> allowlist. If one is blocked it logs and returns cleanly — no source can break
+> the app. *In the build sandbox the allowlist blocked all external hosts, so
+> live ingestion no-ops there; it runs live on Netlify, whose functions have
+> open egress.*
+
+### Adding more sources
+
+1. Add an adapter under `lib/sources/` exposing `async fetchLeads(opts)` that
+   normalizes items and calls `buildLead()` from the shared classifier.
+2. Register it in `LIVE_SOURCES` (`lib/ingest.js`). It runs in parallel and
+   merges/dedups automatically.
 
 Slack alerts go live the moment you set a webhook (UI → Slack Alerts, or the
 `SLACK_WEBHOOK_URL` env var).
