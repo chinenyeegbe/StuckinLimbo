@@ -12,6 +12,11 @@
   # Use Netlify Blobs for the KV store in production.
   STORE_BACKEND = "blobs"
 
+# Scheduled ingestion: pull fresh leads from all public sources every morning
+# (06:00 UTC) so the daily digest is populated automatically.
+[functions."ingest-cron"]
+  schedule = "0 6 * * *"
+
 # Route the SPA's API calls to the function (rewrite, not redirect).
 [[redirects]]
   from = "/api/*"
