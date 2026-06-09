@@ -70,9 +70,21 @@ function leadCard(l) {
 // View: Daily Digest
 // ---------------------------------------------------------------------------
 async function renderDigest(app) {
+  const ingestBtn = el('button', { class: 'btn ghost' }, '📡 Pull fresh signals');
+  ingestBtn.addEventListener('click', async () => {
+    ingestBtn.textContent = 'Pulling…';
+    const r = await api('/api/ingest', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timespan: '3d', maxrecords: 75 }),
+    });
+    ingestBtn.textContent = r.added > 0
+      ? `+${r.added} new leads` : 'No new signals';
+    setTimeout(route, 1100);
+  });
   app.append(el('div', { class: 'view-head' },
     el('div', {}, el('h2', {}, '☀️ Daily Digest'),
       el('div', { class: 'sub' }, 'Top new & re-scored leads since yesterday — read it in 90 seconds.')),
+    ingestBtn,
   ));
   const data = await api('/api/digest?sinceDays=3');
 

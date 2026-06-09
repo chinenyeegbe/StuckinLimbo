@@ -11,6 +11,9 @@
     "ingest": "node scripts/ingest.js",
     "test": "node --test"
   },
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  },
   "engines": {
     "node": ">=18"
   },

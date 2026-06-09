@@ -84,16 +84,60 @@ Each score ships with a **why now**: the exact signal, its date, and a one-liner
 ## Architecture
 
 ```
-server.js              HTTP server + JSON API + static hosting (Node stdlib only)
+lib/core.js            transport-agnostic API router (shared by server + function)
 lib/scoring.js         the 0–100 ranking model + "why now" generator
-lib/signals.js         source-adapter registry + ingestion + illustrative seed
-lib/store.js           JSON persistence, aggressive dedup/merge, staleness
+lib/signals.js         signal types + illustrative seed generator
+lib/sources/gdelt.js   real signal source — GDELT DOC 2.0 news adapter
+lib/ingest.js          ingestion orchestrator (merge real leads into the store)
+lib/store.js           lead store (dedup/merge/staleness) over the KV layer
+lib/kv.js              pluggable persistence: file (local) | Netlify Blobs (prod)
 lib/outreach.js        per-segment, signal-specific draft generator (draft-only)
-lib/alerts.js          Slack webhook dispatch + in-app alert feed
+lib/alerts.js          Slack webhook dispatch + durable alert feed
+server.js              local dev server: static SPA + delegates /api to core
+netlify/functions/api.js   Netlify Function: delegates /api to the same core
+netlify.toml           Netlify build/redirects/Blobs config
 public/                vanilla-JS single-page CRM (Digest / Inbox / Kanban / Alerts)
-test/                  node:test unit tests for scoring + dedup
-scripts/reseed.js      regenerate the demo dataset with fresh relative dates
+test/                  node:test unit tests (scoring, dedup, GDELT parsing)
+scripts/               reseed + ingest CLIs
 ```
+
+The local server and the Netlify Function are thin wrappers around the same
+`lib/core.js` — identical behavior in both. Persistence is abstracted behind
+`lib/kv.js`, so state lives in `data/*.json` locally and in **Netlify Blobs** in
+production with no code changes.
+
+---
+
+## Deploy to Netlify
+
+The app is a static SPA (`public/`) + one serverless function (`netlify/functions/api.js`)
+backed by **Netlify Blobs** — no external database, no build step, no secrets required.
+
+**One-time:**
+```bash
+npm i -g netlify-cli      # if you don't have it
+netlify login
+netlify init              # link/create the site (or connect the GitHub repo in the UI)
+```
+
+**Deploy:**
+```bash
+netlify deploy --build --prod
+```
+…or just connect this repo in the Netlify dashboard — `netlify.toml` already sets
+the publish dir, function dir, `STORE_BACKEND=blobs`, and the `/api/*` rewrite.
+Netlify Blobs is enabled automatically for functions, so persistence works out of the box.
+
+**Live ingestion works on Netlify.** Functions have open egress, so the "📡 Pull
+fresh signals" button (and `POST /api/ingest`) will actually reach GDELT in
+production — unlike the restricted build sandbox.
+
+**Local dev that mirrors prod** (functions + Blobs emulation):
+```bash
+netlify dev              # serves SPA + functions on one port
+```
+Optional: set the Slack webhook as an env var in the Netlify UI
+(`SLACK_WEBHOOK_URL`) or via the in-app Slack Alerts tab.
 
 ### API
 
