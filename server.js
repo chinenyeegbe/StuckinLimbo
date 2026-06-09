@@ -9,6 +9,7 @@ const store = require('./lib/store');
 const { scoreLead } = require('./lib/scoring');
 const { buildDraft } = require('./lib/outreach');
 const alerts = require('./lib/alerts');
+const { runIngestion } = require('./lib/ingest');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -45,6 +46,8 @@ function present(lead, scored, now = Date.now()) {
     owner: lead.owner || null,
     lastTouch: lead.lastTouch || null,
     sample: !!lead.sample,
+    source: lead.source || 'manual',
+    needsReview: !!lead.needsReview,
     score: scored.score,
     disqualified: scored.disqualified,
     whyNow: scored.whyNow,
@@ -204,6 +207,13 @@ const api = {
     const fired = await alerts.dispatch(scoreAll(), { baseUrl, seen: ALERTED });
     send(res, 200, { fired: fired.length, alerts: fired });
   },
+
+  // POST /api/ingest — pull fresh leads from real sources (e.g. GDELT) and merge.
+  'POST /api/ingest': async (req, res, url, body) => {
+    const result = await runIngestion(body || {});
+    LEADS = store.load(); // refresh in-memory cache with the merged set
+    send(res, 200, result);
+  },
 };
 
 function safeConfig() {
@@ -226,6 +236,7 @@ function routeKey(method, pathname) {
   if (pathname.startsWith('/api/lead/')) return `${method} /api/lead`;
   if (pathname.startsWith('/api/digest')) return `${method} /api/digest`;
   if (pathname.startsWith('/api/board')) return `${method} /api/board`;
+  if (pathname.startsWith('/api/ingest')) return `${method} /api/ingest`;
   if (pathname.startsWith('/api/alerts/run')) return `${method} /api/alerts`;
   if (pathname.startsWith('/api/alerts/config')) return `${method} /api/alerts`;
   if (pathname.startsWith('/api/alerts')) return `${method} /api/alerts`;

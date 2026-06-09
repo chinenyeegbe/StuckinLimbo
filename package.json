@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node server.js",
     "seed": "node scripts/reseed.js",
+    "ingest": "node scripts/ingest.js",
     "test": "node --test"
   },
   "engines": {

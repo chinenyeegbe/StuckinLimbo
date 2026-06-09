@@ -111,19 +111,41 @@ scripts/reseed.js      regenerate the demo dataset with fresh relative dates
 
 ---
 
-## Wiring real sources
+## Real signal source — GDELT (live)
 
-The workspace ships with a **clearly-labeled illustrative dataset** (every sample
-lead is flagged `sample: true`, with relative dates so the demo stays alive) so a
-founder can drive the full pipeline on day one. The data layer is built for live
-ingestion:
+A working, no-auth, public source is wired in: **GDELT DOC 2.0** (`lib/sources/gdelt.js`).
+GDELT indexes worldwide news in near-real-time with strong emerging-market
+coverage — the spec's "company press/news" lane.
 
-1. Implement an adapter in `lib/signals.js` with an async `fetch({ since })` that
-   returns `Signal[]` from a **publicly accessible** source (LinkedIn-style posts &
-   job boards, company press/news, government planning & tender portals, public CRE
-   listing pages, fund/capital-raise announcements, industry event sites).
-2. Register it in the `SOURCES` array.
-3. The orchestrator dedups and merges signals into leads automatically.
+```bash
+npm run ingest            # pull last 3 days, merge into the store
+node scripts/ingest.js 7d 100   # custom window + max records
+# or, at runtime:  POST /api/ingest  { "timespan": "3d", "maxrecords": 75 }
+```
+
+What it does: queries GDELT for language that signals an active, undecided
+ground decision (`"site selection"`, `"data center"`, `"breaks ground"`,
+`"infrastructure fund"`, …), classifies each article into a signal
+type/tier/project-type/segment, folds articles into organization-level leads,
+and merges them into the store (dedup + signal-merge). Because a headline rarely
+names the decision-maker, every GDELT lead is flagged **`needsReview: true`** and
+shown with a 🔎 badge — a human confirms the contact before any outreach. Each
+signal still carries a real URL + date, satisfying *no hallucinated leads*.
+
+> **Egress note:** GDELT must be reachable from the host's network allowlist.
+> If it's blocked, ingestion logs and returns cleanly — the workspace keeps
+> running on whatever is already in the store (no source can break the app).
+> *In the build sandbox the allowlist blocked `api.gdeltproject.org`, so live
+> ingestion no-ops there; it runs live anywhere the host is reachable — e.g. a
+> Netlify Function (see below).*
+
+### Wiring additional sources
+
+1. Add an adapter under `lib/sources/` exposing `async fetchLeads({ timespan, maxrecords })`
+   that returns review-flagged, source-linked `Lead[]` from a **publicly accessible** feed
+   (gov planning/tender portals, public CRE listings, job boards, fund announcements…).
+2. Register it in `LIVE_SOURCES` (`lib/ingest.js`).
+3. The orchestrator dedups and merges automatically.
 
 Slack alerts go live the moment you set a webhook (UI → Slack Alerts, or the
 `SLACK_WEBHOOK_URL` env var).

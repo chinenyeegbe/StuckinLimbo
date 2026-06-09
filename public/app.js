@@ -49,6 +49,8 @@ function leadCard(l) {
     el('span', { class: 'tag' }, `stage: ${STAGE_LABEL[l.stage] || l.stage}`),
     l.stale ? el('span', { class: 'tag stale' }, '⏳ stale') : null,
     l.sample ? el('span', { class: 'tag sample' }, 'sample') : null,
+    l.needsReview ? el('span', { class: 'tag sample' }, '🔎 needs review') : null,
+    l.source && l.source !== 'manual' && !l.sample ? el('span', { class: 'tag' }, `via ${l.source}`) : null,
   ];
   return el('div', { class: 'card', onclick: () => openDrawer(l.id) },
     el('div', { class: 'row1' },
