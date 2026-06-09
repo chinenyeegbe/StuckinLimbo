@@ -1,0 +1,25 @@
+# Netlify deployment config for Cuespaces Signal Radar.
+# Static SPA in public/ + serverless API in netlify/functions/, with Netlify
+# Blobs for persistence. No build step needed — there are no front-end deps.
+
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+  command = "echo 'No build step — static SPA + functions'"
+
+[build.environment]
+  NODE_VERSION = "20"
+  # Use Netlify Blobs for the KV store in production.
+  STORE_BACKEND = "blobs"
+
+# Route the SPA's API calls to the function (rewrite, not redirect).
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# SPA fallback so client-side deep links (e.g. /#lead/L-001) load index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
